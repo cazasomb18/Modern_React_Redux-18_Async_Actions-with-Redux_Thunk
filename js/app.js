@@ -1269,3 +1269,190 @@ Remember: we don't modify (or mutate) state inside of a reducer.*/
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //That's the Issue!
+	//chrome console > networks tab > filter by XHR requests:
+		//we'll see that we're making request from posts then 10 for each user
+			//everytime UserHeader is rendered, CDM is calling fetchUsers each time
+				//--> we're making 10 times more calls to the api than we need to
+					//2 ways to solve:
+						//1 - simple code change w/ comlplicated syntax
+						//2 - more challenging way that helps us understand what's going on better
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Memoizing Functions
+	//ISSUE: we're overfetching our user data
+		//2 solutions 
+			//1 - complicated syntax, simple code change
+			//2 - difficult change - easy to understand
+
+		//lodash.com/docs "memoize"
+			//in browser console @ lodash.com:
+				function getUser(id) {
+				    fetch(id);
+				    return 'Made a request!';
+				};
+			//now when we call it w/ a random number we'll see an xhr request in the network tab
+				getUser(2)
+					//return "Made a request!";
+
+			const memoizedGetUser = _.memoize(getUser)
+				//memoized version of same function we wrote above:
+					//ONLY DIFFERENCE: can only call memoizedGetUser ONE TIME with any unique set
+					//of arguments
+						//we can still call it after but original function will not be invoked
+							//--> memoize will return whatever we returned previously
+		//Let's try an example in lodash.com console:
+			memoizedGetUser(3);
+			//string returned --> "Made a request!"
+			// request made --> VM309:2 GET https://lodash.com/3
+			memoizedGetUser(3); //no request made
+			//string returned"Made a request!"
+				//SOO... THIS SEEMS LIKE THE PERFECT SOLUTION:
+		//memoizing our action creator could be a good solution
+			//runs the function to make request w/ unique args once but afterwards w/ those args
+			//just returns the string
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Memoization Issues
+	//in project directory run npm install --save lodash
+
+	//in src/actions/index.js:
+		import _ from 'lodash';
+			//import lodash library: by convention lodash is identified w/ the '-'
+
+	//Now we're going to rewrite our fetchUser action w/ 'function' syntax:
+
+	export const fetchUser = _.memoize(function(id) {
+		//we're trying to _.memoize the outer function w/ the unique arg and hopefully 
+		//solve the problem
+		return async function(dispatch) { 
+			const response = await jsonPlaceholder.get(`/users/${id}`);
+				//API call
+
+			dispatch({ type: 'FETCH_USER', payload: response.data });
+		};
+	});//end of outer memoize
+	//This doesn't work b/c we're STILL RETURNING a dispatch function that's making an API call
+
+
+	//So let's try memoizing the inner function:
+		export const fetchUser = function(id) {
+
+			return _.memoize(async function(dispatch) { 
+				//we're recreating this function each time, therefore the memoizing doens't work
+				//as we expect it to, since we recreate the function it has new args and it'll run
+				const response = await jsonPlaceholder.get(`/users/${id}`);
+				//this api call each time...
+
+
+
+				dispatch({ type: 'FETCH_USER', payload: response.data });
+			});//end of inner memoize
+		};//we're still making 10 requests per 
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//One Time Memoizing
+	//still in src/actions/index.js:
+		export const fetchUser = id => dispatch => { 
+			_fetchUser();
+			//calls memoized version of action creator
+				//needs to be called with id and dispatch
+					//==> so that memoized version can call w/ those same args below:
+		};
+
+
+		//_ ==> 'private' function, other engineers shouldn't really call it unless they know what it does
+		const _fetchUser = _.memoize(async ( id, dispatch) => {
+		//_.memoize this entire call --> memoirze(id, dispatch) --> receives args from export above ^^^^
+			const response = await jsonPlaceholder.get(`/users/${id}`);
+			//now api call is only made once
+			dispatch({ type: 'FETCH_USER', payload: response.data });
+			//data is dispatched once
+		});
+
+		//can clean up export statement w/ some es 2015 syntax to this:
+			export const fetchUser = id => dispatch => _fetchUser(id, dispatch);
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Alternate Overfetching Solution
+	//We're going to create an action creator called fetchPostsAndUsers():
+		//call 'fetchPosts'
+		//get list of posts
+		//--> from list we'll find all unique userId's from list of posts
+		//Iterate over unique userId's
+		//Call 'fetchUser' with each userId
+			//we're not going to replace fetchPosts or fetchUsers
+				//the idea is that we want to create action creators that are as small
+				//and compact as possible
+					//in the future we want to put together a user profile page, 
+						//in that case we'd want an action creator to fetch one user,
+
+				//in general, when we want to have an action creator that does a lot of things
+				//it's BEST PRACTICE to create a bunch of small specific ones and wire them together
+
+	//So let's refactor fetchUser action creator back to previous state, src/actions/index.js:
+		export const fetchUser = id => dispatch => {
+			const response = await jsonPlaceholder.get(`/users/${id}`);
+
+			dispatch({ type: 'FETCH_USER', payload: response.data });
+			
+		};
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Action Creators in Action Creators!
+	//GOAL: call fetchPOsts() - wait to get all posts - retrieve userIds etc.
+
+	//in src/actions/index.js:
+		export const fetchPostsAndUsers = () => async dispatch => {
+			//error handling - keeping track of when we run dispatch(fetchPosts());
+			console.log('About to fetch posts!');
+			await dispatch(fetchPosts());
+			//await === makes sure we don't move down to the next line until the api call is complete
+			console.log('Fetched posts!');
+			//error handling - keeping track of when we run dispatch(fetchPosts());
+		};
+			/*when we call fetchPosts(), we have to pass the result of calling it into our dispatch
+			function*/ dispatch(fetchPosts());
+				//so that inner function will show up in redux-thunk and get invoked w/ dispatch()
+				//rule whenever we call an action creator inside of an aciton creator
+
+	//Now let's wire up this fetPostsAndUsers action creator to PostList.js:
+		import { fetchPostsAndUsers } from '../actions';
+
+		class PostList extends React.Component {
+			componentDidMount(){
+				this.props.fetchPostsAndUsers();
+				//replace old action creator with new fetchPostsAndUsers
+			}
+		}
+		export default connect(
+			mapStateToProps,
+			 { fetchPostsAndUsers }
+			 //and call action creator with connect()()
+		 )(PostList);
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//
