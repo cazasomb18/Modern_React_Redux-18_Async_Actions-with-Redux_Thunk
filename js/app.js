@@ -1455,4 +1455,146 @@ Remember: we don't modify (or mutate) state inside of a reducer.*/
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-//
+//Finding Unique User Ids
+	//Now we have a better idea of how we can call an action creator from an action creator, and 'wait'
+	//for a task to be completed within an inner action creator
+
+	//1 - Call 'fetchPosts' - done
+	//2 - Get list of Posts - done
+	//3 - Iterate over list of posts, find all unique user ids ***
+	//4 - Iterate over list of userIds and call fetchUsers() on each one
+
+	//2 - Get list of Posts
+	//^^^ can do this easily - remember, 2nd argument in action creators that return a function is 
+		//getState --> function existing on the redux store that gives us access to all the data inside of
+		//redux (store)
+		//So in src/actions/index.js, let's try calling getState().posts after 'await' dispatch();
+			export const fetchPostsAndUsers = () => async dispatch => {
+				await dispatch(fetchPosts());
+				console.log(getState().posts);
+				//logs out all 100 posts, can see in console
+			};
+
+	//3 - Now let's iterate over list of posts, find all unique user ids and fetch user for each one:
+
+	//We'll use the lodash library to do this, will make finding unique ids very easy/straightforward.
+	//Lodash has it's own version of .map() that has some nice features in it:
+
+		_.map(getState().posts, 'userId'); //goes through all posts and pull off just user id props
+			//--> array of 100 userids - now we need the unique user ids:
+
+		const userIds = _.uniq(._map.(getState().posts, 'userId'));
+			//_.uniq() returns all unique data in _.map() ==> 10 unique user Ids
+
+	//entire action-creator now looks like this (src/actions/index.js:):
+		export const fetchPostsAndUsers = () => async (dispatch, getState) => {
+			await dispatch(fetchPosts());
+			const userIds = _.uniq(_.map(getState().posts, 'userId'));
+			userIds.forEach(id => dispatch(fetchUser(id)));
+		};
+
+	//4 - Now that we have our  list of userIds, iterate and call ACTION CREATOR fetchUsers() on each one:
+		userIds.forEach(id => dispatch(fetchUser(id)));
+			//calls fetchUser() forEach id in the userIds [] and dispatches the results
+				//WE ARE NOT AWAITING THIS OPERATION B/C WE DON'T CARE ABOUT WAITING FOR THIS:
+					//we wanted to wait on the posts, once we had that we just wanted to initiate a
+					//request to go and fetch the users - not needed this time around b/c nothing else
+					//is waiting on this operation.
+						//*** 'async await' syntax does not work with arr.forEach() anyways
+
+	//Let's check out the network xhr request log - we're still making all these duplicate requests,
+
+	//UserHeader is still attempting ot fetch it's own data, to stop this, go to UserHeader.js:
+		//remove entire CDM: trying to fetch own data, we're now using fetchPostsAndUsers for user data
+		//since we're removing fetchUser(), remove import statement also
+		//and finally delete argument in connect()() @ bottom:
+	//UserHeader.js now looks like this:
+		import React from 'react';
+		import { connect } from 'react-redux';
+		class UserHeader extends React.Component {
+			render(){
+				const { user } = this.props;
+				if (!user) {
+					return null;
+				}
+				return <div className="header">{user.name}</div>
+			}
+		}
+		const mapStateToProps = (state, ownProps) => {
+			return { user: state.users.find(user => user.id === ownProps.userId) };
+		};
+		export default connect(mapStateToProps)(UserHeader);
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Quick Refactor with Chain
+	//Optional refactor to fetch posts and users:
+	//src/acitons/index.js:
+	export const fetchPostsAndUsers = () => async (dispatch, getState) => {
+		await dispatch(fetchPosts());
+		const userIds = _.uniq(_.map(getState().posts, 'userId'));
+		userIds.forEach(id => dispatch(fetchUser(id)));
+	};// ^^^ we're going to refactor this block using lodash _.chain() function:
+
+	_.chain() //very special lodash function, allows us to "chain on" a bunch of additional functions
+	//that are going to manpulate some data.
+
+	//example:
+		/*rewrite this w/ _.chain() */
+		const userIds = _.uniq(_.map(getState().posts, 'userId'));
+
+		_.chain(getState().posts)
+			.map('userId') //--> 1st arg automatically = whatever object we called _.chain():list of posts
+						   		//--> 'userId'=== 2nd arg in .map ==> .map(getState().posts, 'userId')
+			.uniq()		   //--> finds each unique 'userId' from map
+			.forEach(id => dispatch(fetchUser(id))); //--> calls fetchUser(id) per id and dispatches action
+			.value()	//lodash will not execute all these _.chain() methods until you run value();
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//App Wrapup
+	//root index.js:
+		//imported redux thunk, wired it up to redux store via use of applyMiddleWare
+		//called Applymiddleware and passed result of it into the 2nd arg of the createStore() call
+
+	//when we apply this redux thunk middleware, anytime we dispatch an action it will be
+		//sent to REDUX THUNK FIRST
+			//then action sent off to all our reducers
+
+	//when we used redux-thunk, it changed the rules of our action creators:
+		//allows us to optionally return functions:
+			//through this we returned the DISPATCH and GETSTATE functions which allowed
+			//us total control over the information from our redux store
+
+				//***anytime we make an API REQUEST from an ACTION CREATOR we will ALWAYS
+				//need to use something like REDUX-THUNK***
+
+	//When we returned an action creator we used some interesting syntax:
+	export const fetchPosts = () => async dispatch => {
+		const response = await jsonPlaceholder.get('/posts');
+		dispatch({ type: 'FETCH_POSTS', payload: response.data })
+	};
+	//all that's going on here is we have a function that returns a function, like this:
+		function(){
+			return function(){
+			}
+		};
+
+	//ACTION CREATORS - remember we learned how to create an action creator that called other action
+	//creators and still dispatched the results of those actions creators
+		//we needed to do this due to an overfetching data problem.
+
+	//REDUCERS - learned A LOT ABOUT REDUCERS
+		//1st argument = state, and is what was returned from the first time reducer ran
+		//We usually make use of the switch statement syntax with reducers
+		//usersReducer.js, remember the[...state, action.payload] syntax, we always return a NEW ARRAY:
+			return [...state, action.payload];
+				//remember 'state' in redux === 'state' in memory, not the new state, so it must always
+				//be returned in a new array to cause react to rerender to show new content
+
+
+	
+
+
+
