@@ -800,4 +800,472 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //Safe State Updates in Reducers
-	//
+	//So What Can and Can't We do to State with Reducers?
+
+	//BAD - arrays 												GOOD - arrays
+	//Removing an e from an array: 
+								//state.pop()		==> 		state.filter(e => e !== 'hi!')
+	//adding an e to an array: 
+								//state.push('')	==> 		[...state, 'hi!']
+	//replacing an e in an array:
+								//state[0] = 'hi'	==> 		state.map(e => e === 'hi' ? 'bye' : e)
+
+	//BAD - objects 											GOOD - objects
+	//updating a prop in an {}:
+								//state.sam = 'Sam' ==> 		{...state, name: 'Sam'}
+	//Adding a property to an {}:
+								//state.age = 30	==> 		{...state, age: 30}
+	//Removing a prop from an {}:
+								//delete state.name ==>			{...state.age: undefined }
+	//												==> 		_.omit(state, 'age')
+
+	//Examples in browser console:
+	const colors = ['red', 'green'];
+	//ADDING AN ELEMENT TO AN ARRAY:
+		//[...colors'] === creates new array with existing value of colors inside it
+		[...colors, 'blue'];
+			//length/contents of new array: (3) ["red", "green", "blue"]
+
+		//however this is NOT THE ORIGINAL ARRAY COLORS SO...
+		[...colors, 'blue'] === colors;
+			//returns false b/c we created a new array and it is not the same as the [] in the colors memory
+
+		//We can easily use this syntax to add new elements onto the end of our new []:
+		[...colors, 'blue', 'purple', 'pink'];
+			//returns length/contents of new []: (5) ["red", "green", "blue", "purple", "pink"]
+
+		//Or add them at the beginning
+		['purple', ...colors]
+			//length/contents of new []: (3) ["purple", "red", "green"]
+				//IMPORTANT: THIS IS B/C THE ORDER OF OPERATIONS READS FROM LEFT TO RIGHT
+
+	//REMOVING AN ELEMENT FROM AN ARRAY:
+		//filters out all elements !== 'green'
+		colors.filter(color => color !== 'green' );
+			//returns NEW [] w/ value 'red': ["red"]
+		colors.filter(color => color !== 'green') === colors;
+			//returns false b/c the colors [] has not been changed and isn't the same the [] colors in memory
+
+	//UPDATING PROPERTIES INSIDE OF AN OBJECT:
+		const profile = {name: 'Sam'}
+
+		//takes name property out of profile {} and changes it to Alex: 
+		{...profile, name: 'Alex'}
+			//new object: {name: "Alex"}
+
+	//ADDING PROPERTIES INSIDE OF AN OBJECT:
+		//adds 'age' property to new {} w/ profile
+		{...profile, age: 30}
+			//new object: {name: "Sam", age: 30}
+
+		//Remember the order of operations is the same as in arrays:
+		{ name: 'Alex', ...profile }
+			//the console reads this from left to right, so even though we tried
+			//to change the value of the name prop, since we put the profile var
+			//last to the right it was overwritten with this: {name: "Sam"}
+
+	//DELETING PROPERTIES INSIDE OF AN OBJECT:
+		//WE CANNOT DO THIS
+		delete profile.name;
+		//true valid js operation but mutates object ot this: {}
+			//WE CANNOT DO THIS
+
+		{...profile, name: undefined}
+		//returns new {} as this: {name: undefined}, however this is not truly deleting the
+		//propety b/c the key-value pair still exists:
+
+		//LoDash Library _.omit(state, 'age') - popular js library for working with objects and arrays
+		const profile = { name: 'Sam' } 
+
+		//with lodash, removes 'name' prop
+		_.omit(profile, 'name'); 
+			//returns new empty object: {}
+		profile 
+			//and we can still reference the original data, profile === {name: 'Sam'}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Switch Statements in Reducers
+	//in reducers/index.js:
+	//B/c this is dealing w/ a list of records we'll default state an empty []
+	export default (state = [], action) => {
+		//watches for action type 'FETCH_POSTS'
+		if (action.type === 'FETCH_POSTS') {
+			//action.type === 'FETCH_POSTS' will return action.payload;
+			return action.payload;
+		}
+		//when there is no appropriate action.type we'll just return state
+		return state;
+	};
+
+	//However, the usual syntax in Reducers uses switch statements in order to see everything w/o errors
+	export default (state = [], action) => {
+		switch (action.type) {
+			case 'FETCH_POSTS':
+				return action.payload;
+			default:
+				return state;
+		}
+	};
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Coding Challenge 13 - Adding a Reducer Case
+/*Right now, our reducer only handles one type of action - the 'FETCH_POSTS' type. 
+
+Let's add another case to the switch statement that will add a single post to our list of posts.
+
+Your reducer will be called with an action that looks like the following:*/
+
+	{ type: 'ADD_POST', payload: { id: 123, title: 'Post Title' } }/*
+
+1.Add another switch statement to the reducer. Make sure you watch for an action of type 'ADD_POST'
+
+2. Add the payload of this action on to the end of your current list of posts (the state variable) and 
+return the result
+
+	Hints
+
+	1. Don't forget that you need to return a completely new array!  Don't use the push method to add 
+	the post.
+	2. Use the syntax shown in the video 'Safe State Updates in Reducers' to add the payload into the 
+	state array
+
+postsReducer.js*/
+
+export default (state = [], action) => {
+    
+    switch (action.type) {
+        case 'FETCH_POSTS':
+            return action.payload;
+        //SOLUTION
+    	case 'ADD_POST':
+    		return [...state, action.payload];
+    		//END SOLUTION
+    	default: 
+    		return state;
+    };
+};
+/*This adds in a new case to the switch statement. This reducer can now handle actions with the type 
+'ADD_POST'. 
+Whenever this reducer sees an action with type 'ADD_POST', it will take the payload property from the 
+action and add it in to the end of the state array. Notice that the update to the state is done with 
+that special array spread syntax. This makes sure that a completely new array is returned.  
+Remember: we don't modify (or mutate) state inside of a reducer.*/
+  /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Dispatching Correct Values
+
+	//Now any time we make a request to the api we should be getting back an action w/ a payload prop
+	//showing up in the reducer
+	//--> Reducer should be returning the list of posts
+	//--> Redux state object will now contain that list of posts from the api
+	//--> React sees the change in state and rerenders.
+		//Now all we really ahve to do is openup the PostList comp and get the list of posts inside this
+		//component, 
+		//REMEMBER - anytime we want to get data from REDUX into REACT we will always:
+			//define mapStateToProps
+			//pass it off to the connect function 
+	//in PostList.js:
+
+	//1 - define mapStateToProps
+		const mapStateToProps = state => {
+			return { posts: state.posts }
+		};
+		//remember, we have to return it w/ the variable of posts b/c that's what we called it in 
+		//src/reducers/index.js:
+			export default combineReducers({
+				posts: postsReducer
+			});
+
+	//2 - pass off to connect function as 1st arg:
+		export default connect(
+			mapStateToProps,
+			 { fetchPosts }
+		 )(PostList);
+
+		 //now to test we'll console.log(this.props.posts):
+		 render(){
+			console.log(this.props.posts);
+			return <div>PostList</div>
+		}
+		//In browser console, you'll see that we have 2 console.logs:
+			/*1*/[] //that was the initial value when the REDUCER ran for the 1st TIME
+				//whatever reducer's initial value it probably won't have the value of 'FETCH_POSTS'
+					//therefore an empty array is returned: []
+			/*2*/ {data: Array(100), status: 200, statusText: "OK", headers: {…}, config: {…}, …}
+				//after component renders, in CDM, we'll run the fetchPosts() method to fetch data from api
+					//after we get back data and dispatch the action to a reducer 
+					//REDUCER sees we have an action type of 'FETCH_POSTS' and returns whatever value is
+					//in action.payload prop
+					//REDUX sees that weh ave not returned the same array in memory
+						//--> b/c this is a new value redux assumes we have some new data
+						//--> redux tells REACT to rerender itself with new data
+					//--> POSTLIST rendered a second time
+						//--> mapstatetoprops called a second time
+							//--> we'll get the new value of state.posts
+								//--> new props post gets shown up inside component
+									//--> render method called again
+										//--> console.log called again w/ api data now
+
+		//So now we have one small error, we're returning the entire response object and not just the data,
+		//To fix this, we'll dispatch response.data response src/actions/index.js:
+		import jsonPlaceholder from '../apis/jsonPlaceholder';
+
+		export const fetchPosts = () => async (dispatch) => {
+			const response = await jsonPlaceholder.get('/posts');
+
+			dispatch({ type: 'FETCH_POSTS', payload: response.data })
+		};
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//List Building!!
+	//Now that we have our data (response.data), let's build a list, in PostList.js, create a new 
+	//method and call it renderList(){}:
+		renderList(){
+			return this.props.posts.map(post => {
+				return (
+					<div className="item" key={post.id}>
+						<i className="large middle aligned icon user"/>
+						<div className="content">
+							<div className="description">
+								<h2>{post.title}</h2>
+								<p>{post.body}</p>
+							</div>
+						</div>
+					</div>
+				);
+			})
+		}//						post.title / post.body --> keys from the api data that we want
+	//Now we want to call renderList() in our render method:
+		render(){
+			console.log(this.props.posts);
+			return <div className="ui relaxed divided list">{this.renderList()}</div>
+		}
+
+	//OK - now the list is rendering the way we want it to, next we'll address how to display the
+	//user information
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Displaying Users
+	//Let's review the api documentation so we can remember why we need to get the user information
+	//from a seperate api request:
+		//http://jsonplaceholder.typicode.com/posts
+			//this data endpoint returns the following keys:
+				//userId
+				//id (post id)
+				//title
+				//body
+		//jsonplaceholder.typicode.com/users
+			//data endpoint returns the key: id
+				//if we want to show the actual name of the author making the posts we'll need to make
+				//a follow up request to the api and get the user's information
+					//there's an easy way and a hard way
+
+		//Easy Way: we know we have the entire list of posts and that the user endpoint will return any 
+		//user in this application
+			//this is too easy b/c a real blogging app wouldn't display the information in one page,
+			//b/c this would be millions of users they'd show you a portion of the data, 
+				//so we're not going to do it this way, it woudln't be done like this in the real world
+
+		//THE HARD WAY: 
+			//Fetch Posts
+				//--> Show posts in PostList
+					//--> each element in PostList shows User Header
+					//in PostList: we'll place <UserHeader/> and give it a userId prop
+						//--> UserHeader is given ID of user to show
+						//--> each UserHeader Attempts to Fetch its user
+						//{Fetch User,  id: 1}, 	{Fetch User, id: 2}, 	{Fetch User, id: 3}
+							//--> show  users in each --> UserHeader		-->
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Fetching Singular Records
+	//We're going to create a new ACTION CREATOR to fetch ONE DIVIDUAL USER at a time
+		//fetchUser (action creator): makes request to API, gets chosen user and dispatches action
+			//--> Action dispatched with type of 'FETCH_USER', and response.data on the payload prop
+				//-->create usersReducer: holds list of all users fetched in our application
+					//--> we'll tabulate all the user records we collect into this reducer
+
+	//put together action creator fetchUser in src/actions/index.js:
+		export const fetchUser = (id) => async dispatch => { 
+				//takes in id from users as arg, async syntax w/ dispatch
+
+			//response = jsonPlaceholder api users endpoint
+			const response = await jsonPlaceholder.get(`/users/${id}`);
+				//					interpolate the id value in endpoint w/ es2015 syntax
+
+			dispatch({ type: 'FETCH_USER', payload: response.data });
+		};
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Displaying the User Header
+	//Now that we've got out fetchUser action creator put together, we'll start creating our component
+	//that will just display the author's name, we'll call it UserHeader:
+	//in src/components/UserHeader.js, add boilerplate:
+		import React from 'react';
+
+		class UserHeader extends React.Component {
+			render(){
+				return <div>User Header</div>
+			}
+		}
+
+		export default UserHeader;
+
+	//Now in PostList.js, make sure we can render this component:
+		import UserHeader from './UserHeader';
+			//import component
+		//show instance of component in render w/ userIdprop:
+		<UserHeader userId={post.userId}/>
+			//we're in the renderList() props.post.map: key we want is userId
+
+	//Back to UserHeader.js:
+		import { connect } from 'react-redux';
+			//import connect function from react-redux middleware
+		import { fetchUser } from '../actions';
+			//import fetchUser action we created
+
+		class UserHeader extends React.Component {
+			componentDidMount(){
+				this.props.fetchUser(this.props.userId)
+					//
+			}
+
+			render(){
+				return <div>User Header</div>
+			}
+		}
+
+		export default connect(null, { fetchUser })(UserHeader);
+			//call connect:
+				//initialize w/ initial state of null, 
+				//attach action fetchUser, and add component: <UserHeader/>
+
+		//Next we'll work on creating a reducer that will package the data we want it to
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Finding Relevant Users
+	//We're going to wire up a reducer to catch the action created by our action creator
+		//this new usersReducer: will maintain a list of all the users we've fetched
+			//--> once we collect that data inside our reduce we can make it availalbe to the UserHeader
+			//component
+				//--> component UserHeader will render the data we care about:
+
+	//So, let's create usersReducer.js w/ this boilerplate:
+		export default (state = [], action) => {
+			switch(action.type) {
+				case 'FETCH_USER':
+					return [...state, action.payload];
+				default: 
+					return state;
+			}
+		}
+
+	//Now let's wire this up in reducers/index.js:
+		import usersReducer from './usersReducer';
+			//import the reducer we just created 
+
+		export default combineReducers({
+			posts: postsReducer,
+			users: usersReducer
+				//now we have a reducer avail as the key of users
+		});
+
+	//Now let's get this data in state to our UserHeader component with mapStateToProps:
+	//UserHeader.js:
+		const mapStateToProps = (state) => {
+		return { users: state.users }
+	};//now UserHeader has access to this.props.users, [] of all users we care about
+
+	//Still in UserHeader.js, render() method:
+	render(){
+		//find first user where the id matches the userId in props object:
+		const user = this.props.users.find(user => user.id === this.props.userId);
+
+		//if no user matches that, return null
+		if (!user) {
+			return null;
+		}
+		//when we have a user render the user.name inside of a div:
+		return <div>{user.name}</div>
+	}
+
+		//quick example on the array mutation .find(), browser console:
+			const colors = ['red', 'green', 'blue', 'green'];
+			colors.find(color => color === 'blue');
+			//method ends once it finds 'blue' and returns --> "blue"
+
+	//DON'T FORGET TO CALL mapStateToProps as the first arg in connect()()!!!:
+	//UserHeader.js:
+		export default connect(mapStateToProps, { fetchUser })(UserHeader);
+
+	//Ok so now we're looking great, but we have one little issue... 
+		//next we'll do a refactor for the <UserHeader/> component
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//Extracting Logic to MapStateToProps
+	//So right now the UserHeader component has the entire list of user data, we want to figure out a way
+	//to only pass it the user information that we care about, so how could we go about this?
+
+	//in UserHeader.js, mapStateToProps, instead of loading all of this data in the component and having
+	//the component decide what data to care about, we could extract all that logic to the 
+	//mapStateToProps function:
+		const mapStateToProps = (state, ownProps) => {
+		//argument 2: ownProps --> object is a reference to the props that are about to be sent into
+		//UserHeader
+
+			return { users: state.users.find(user => user.id === ownProps.userId) };
+		};
+
+	//Now that we've moved the user declaration we need to extract it out of the props object in render(){}:
+		render(){
+			const { user } = this.props;
+				//now 'user' is available outside the props object
+			if (!user) {
+				return null;
+			}
+			return <div className="header">{user.name}</div>
+		};
+		//we can extract anything that is going to do some computation into our redux state to our 
+		//mapSTateToProps function
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+//That's the Issue!
